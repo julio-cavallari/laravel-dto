@@ -49,6 +49,24 @@ Generate DTO for a specific Form Request:
 php artisan dto:generate CreateArticleRequest
 ```
 
+### Checking DTO Status
+
+Check which Form Requests have corresponding DTOs:
+
+```bash
+# Check all Form Requests
+php artisan dto:check
+
+# Show only Form Requests without DTOs
+php artisan dto:check --missing
+
+# Show only Form Requests with DTOs
+php artisan dto:check --existing
+
+# Show detailed information
+php artisan dto:check --details
+```
+
 ### Command Options
 
 - `--force`: Force regenerate existing DTOs

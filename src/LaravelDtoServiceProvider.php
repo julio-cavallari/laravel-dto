@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace JulioCavallari\LaravelDto;
 
 use Illuminate\Support\ServiceProvider;
+use JulioCavallari\LaravelDto\Commands\CheckDtoCommand;
 use JulioCavallari\LaravelDto\Commands\GenerateDtoCommand;
 
 /**
@@ -33,6 +34,7 @@ class LaravelDtoServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 GenerateDtoCommand::class,
+                CheckDtoCommand::class,
             ]);
 
             $this->publishes([

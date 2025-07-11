@@ -105,23 +105,52 @@ class DtoGenerator
         }
 
         $params = [];
+        $phpDocParams = [];
         $readonly = $this->isReadonly() ? 'readonly ' : '';
+        $hasComplexTypes = false;
 
         foreach ($fields as $field) {
-            $type = $this->formatType($field);
+            $originalType = $field['type'];
+            $phpType = $this->formatType($field);
             $name = $field['name'];
             $default = $this->formatDefaultValue($field);
 
-            $param = "        public {$readonly}{$type} \${$name}";
+            // Generate PHP parameter
+            $param = "        public {$readonly}{$phpType} \${$name}";
 
             if ($default !== null) {
                 $param .= " = {$default}";
             }
 
             $params[] = $param;
+
+            // Check if this is a complex type that needs PHPDoc
+            if ($this->isComplexType($originalType)) {
+                $hasComplexTypes = true;
+                $phpDocType = $field['nullable'] ? "{$originalType}|null" : $originalType;
+                $phpDocParams[] = "     * @param {$phpDocType} \${$name}";
+            }
         }
 
-        return implode(",\n", $params);
+        $paramString = implode(",\n", $params);
+
+        // Add PHPDoc if we have complex types
+        if ($hasComplexTypes) {
+            $phpDocString = "    /**\n" . implode("\n", $phpDocParams) . "\n     */\n";
+            return $phpDocString . "    public function __construct(\n" . $paramString;
+        }
+
+        return $paramString;
+    }
+
+    /**
+     * Check if a type is complex and needs PHPDoc annotation.
+     */
+    private function isComplexType(string $type): bool
+    {
+        return str_starts_with($type, 'array<') ||
+               str_starts_with($type, 'array{') ||
+               str_contains($type, '\\') && $type !== 'string' && $type !== 'int' && $type !== 'float' && $type !== 'bool' && $type !== 'array';
     }
 
     /**
@@ -159,16 +188,46 @@ class DtoGenerator
     }
 
     /**
-     * Format field type for PHP code.
+     * Format field type for PHP code (simplified for valid PHP types).
      *
      * @param  array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}  $field
      */
     private function formatType(array $field): string
     {
-        $type = $field['type'];
+        $type = $this->getPhpType($field['type']);
 
         if ($field['nullable']) {
             return "?{$type}";
+        }
+
+        return $type;
+    }
+
+    /**
+     * Get simplified PHP type (removes complex array notation).
+     */
+    private function getPhpType(string $type): string
+    {
+        // Convert complex array types to simple 'array'
+        if (str_starts_with($type, 'array<') || str_starts_with($type, 'array{')) {
+            return 'array';
+        }
+
+        // Keep other types as is
+        return $type;
+    }
+
+    /**
+     * Get PHPDoc type annotation for a field (includes complex types).
+     *
+     * @param  array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}  $field
+     */
+    private function getPhpDocType(array $field): string
+    {
+        $type = $field['type'];
+
+        if ($field['nullable']) {
+            return "{$type}|null";
         }
 
         return $type;
