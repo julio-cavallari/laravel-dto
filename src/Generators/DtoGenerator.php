@@ -196,7 +196,7 @@ class DtoGenerator
             'int', 'float' => (string) $value,
             'bool' => $value ? 'true' : 'false',
             'array' => $this->formatArrayDefault($value),
-            default => "'{$value}'",
+            default => is_array($value) ? $this->formatArrayDefault($value) : "'{$value}'",
         };
     }
 
@@ -222,7 +222,7 @@ class DtoGenerator
             'int', 'float' => (string) $value,
             'bool' => $value ? 'true' : 'false',
             'array' => $this->formatArrayDefault($value),
-            default => "'{$value}'",
+            default => is_array($value) ? $this->formatArrayDefault($value) : "'{$value}'",
         };
     }
 

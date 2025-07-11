@@ -110,7 +110,7 @@ class GenerateDtoCommand extends Command
                     $this->processFormRequest($file->getPathname(), $parser, $generator, $force, $dryRun);
                     $processed++;
                 } catch (\Exception $e) {
-                    $this->warn("⚠️  Skipped {$file->getFilename()}: {$e->getMessage()}");
+                    $this->warn("⚠️  Skipped {$file->getFilename()}: {$e->getMessage()} at {$e->getFile()}@{$e->getLine()}");
                 }
             }
         }
