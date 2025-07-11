@@ -5,6 +5,11 @@
 
 A Laravel package that automatically generates Data Transfer Objects (DTOs) from Form Request classes, keeping them in sync with your validation rules.
 
+> ⚠️ **Development Status**
+>
+> This package is currently in active development and is **not ready for production use**.
+> The API may change significantly between versions. Please use at your own risk and avoid using in production environments until a stable version is released.
+
 ## Features
 
 - 🚀 **Automatic Generation**: Generate DTOs from existing Form Request classes

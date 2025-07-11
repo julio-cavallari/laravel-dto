@@ -114,17 +114,107 @@ return [
     |
     */
     'type_mapping' => [
-        'string' => 'string',
-        'integer' => 'int',
-        'numeric' => 'float',
+        // Boolean rules
+        'accepted' => 'bool',
+        'accepted_if' => 'bool',
         'boolean' => 'bool',
+        'declined' => 'bool',
+        'declined_if' => 'bool',
+
+        // String rules
+        'active_url' => 'string',
+        'alpha' => 'string',
+        'alpha_dash' => 'string',
+        'alpha_num' => 'string',
+        'ascii' => 'string',
+        'confirmed' => 'string',
+        'current_password' => 'string',
+        'different' => 'string',
+        'doesnt_start_with' => 'string',
+        'doesnt_end_with' => 'string',
+        'email' => 'string',
+        'ends_with' => 'string',
+        'hex_color' => 'string',
+        'lowercase' => 'string',
+        'mac_address' => 'string',
+        'not_regex' => 'string',
+        'regex' => 'string',
+        'same' => 'string',
+        'starts_with' => 'string',
+        'string' => 'string',
+        'uppercase' => 'string',
+        'url' => 'string',
+        'ulid' => 'string',
+        'uuid' => 'string',
+
+        // Numeric rules
+        'between' => 'float',
+        'decimal' => 'float',
+        'digits' => 'int',
+        'digits_between' => 'int',
+        'gt' => 'float',
+        'gte' => 'float',
+        'integer' => 'int',
+        'lt' => 'float',
+        'lte' => 'float',
+        'max' => 'float',
+        'max_digits' => 'int',
+        'min' => 'float',
+        'min_digits' => 'int',
+        'multiple_of' => 'float',
+        'numeric' => 'float',
+        'size' => 'float',
+
+        // Array rules
         'array' => 'array',
+        'contains' => 'array',
+        'distinct' => 'array',
+        'in' => 'string', // Value must be in array, but field itself is usually string
+        'in_array' => 'string',
+        'list' => 'array',
+        'not_in' => 'string',
+        'required_array_keys' => 'array',
+
+        // Date/Time rules
+        'after' => 'Carbon\\Carbon',
+        'after_or_equal' => 'Carbon\\Carbon',
+        'before' => 'Carbon\\Carbon',
+        'before_or_equal' => 'Carbon\\Carbon',
+        'date' => 'Carbon\\Carbon',
+        'date_equals' => 'Carbon\\Carbon',
+        'date_format' => 'Carbon\\Carbon',
+        'timezone' => 'string',
+
+        // File rules
+        'dimensions' => 'Illuminate\\Http\\UploadedFile',
+        'extensions' => 'Illuminate\\Http\\UploadedFile',
         'file' => 'Illuminate\\Http\\UploadedFile',
         'image' => 'Illuminate\\Http\\UploadedFile',
-        'date' => 'Carbon\\Carbon',
-        'email' => 'string',
-        'url' => 'string',
-        'uuid' => 'string',
+        'mimes' => 'Illuminate\\Http\\UploadedFile',
+        'mimetypes' => 'Illuminate\\Http\\UploadedFile',
+
+        // Database rules
+        'exists' => 'mixed', // Can be string, int, etc. depending on column type
+        'unique' => 'mixed', // Can be string, int, etc. depending on column type
+
+        // Network/IP rules
+        'ip' => 'string',
+        'ipv4' => 'string',
+        'ipv6' => 'string',
+
+        // JSON rule
         'json' => 'array',
+
+        // Enum rule
+        'enum' => 'mixed', // Type depends on the enum
+
+        // Common aliases and variations
+        'bool' => 'bool',
+        'int' => 'int',
+        'float' => 'float',
+
+        // Note: Utility rules like 'required', 'nullable', 'filled', etc. are intentionally
+        // excluded because they define field presence/optionality, not data types.
+        // These are handled separately in the parsing logic.
     ],
 ];

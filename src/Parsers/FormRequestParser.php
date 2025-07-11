@@ -122,22 +122,29 @@ class FormRequestParser
         $lines = file($fileName);
         $methodCode = implode('', array_slice($lines, $startLine - 1, $endLine - $startLine + 1));
 
-        // Simple regex to extract array rules - this is a basic implementation
-        preg_match('/return\s*\[(.*?)\]/s', $methodCode, $matches);
-
-        if ($matches === []) {
-            return [];
+        // Extract the return array more robustly
+        if (preg_match('/return\s*\[(.*?)\];/s', $methodCode, $matches)) {
+            $rulesString = $matches[1];
+            return $this->parseRulesString($rulesString);
         }
 
-        // This is a simplified parser - in production, you'd want a more robust solution
-        $rulesString = $matches[1];
+        return [];
+    }
+
+    /**
+     * Parse rules string to extract field rules.
+     *
+     * @return array<string, string>
+     */
+    private function parseRulesString(string $rulesString): array
+    {
         $rules = [];
 
-        // Parse simple key => value pairs
-        preg_match_all('/[\'"]([^\'"]+)[\'"]\s*=>\s*[\'"]([^\'"]+)[\'"]/', $rulesString, $ruleMatches, PREG_SET_ORDER);
-
-        foreach ($ruleMatches as $match) {
-            $rules[$match[1]] = $match[2];
+        $pattern = '/[\'"]([^\'\"]+)[\'"]\s*=>\s*[\'"]([^\'\"]+)[\'"]/';
+        if (preg_match_all($pattern, $rulesString, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $rules[$match[1]] = $match[2];
+            }
         }
 
         return $rules;
@@ -152,9 +159,26 @@ class FormRequestParser
     private function parseFields(array $rules): array
     {
         $fields = [];
-        $typeMapping = config('laravel-dto.type_mapping', []);
+        $typeMapping = $this->getTypeMapping();
 
+        // First, process array fields with asterisk notation
+        $arrayFields = $this->processArrayFields($rules, $typeMapping);
+
+        // Then process nested fields
+        $nestedFields = $this->processNestedFields($rules, $typeMapping);
+
+        // Finally, process regular fields
         foreach ($rules as $fieldName => $rule) {
+            // Skip nested field rules - they are handled separately
+            if ($this->isNestedFieldRule($fieldName)) {
+                continue;
+            }
+
+            // Skip fields that are already processed as array or nested fields
+            if (isset($arrayFields[$fieldName]) || isset($nestedFields[$fieldName])) {
+                continue;
+            }
+
             $fieldInfo = $this->parseFieldInfo($fieldName, $rule, $typeMapping);
             $fields[$fieldName] = [
                 'type' => $fieldInfo['type'],
@@ -168,7 +192,145 @@ class FormRequestParser
             ];
         }
 
-        return $fields;
+        // Merge array fields and nested fields with regular fields
+        return array_merge($fields, $arrayFields, $nestedFields);
+    }
+
+    /**
+     * Process array fields with asterisk notation (e.g., 'preferences.*').
+     * These become array<int, type> in the DTO.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, string>  $typeMapping
+     * @return array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>
+     */
+    private function processArrayFields(array $rules, array $typeMapping): array
+    {
+        $arrayFields = [];
+
+        foreach ($rules as $fieldName => $rule) {
+            if (str_contains($fieldName, '*')) {
+                // This is an array field like 'tags.*' or 'preferences.*.name'
+                $baseFieldName = str_replace('.*', '', $fieldName);
+
+                // Skip complex nested array fields (like 'preferences.*.name')
+                if (str_contains($baseFieldName, '.')) {
+                    continue;
+                }
+
+                $fieldRules = is_string($rule) ? explode('|', $rule) : (array) $rule;
+
+                // Infer the type of array elements
+                $elementType = $this->inferType($fieldRules, $typeMapping);
+                $isNullable = in_array('nullable', $fieldRules);
+
+                $arrayFields[$baseFieldName] = [
+                    'type' => "array<int, {$elementType}>",
+                    'nullable' => $isNullable,
+                    'default' => $isNullable ? null : [],
+                    'name' => $baseFieldName,
+                    'is_array' => true,
+                    'has_default' => true,
+                    'default_value' => $isNullable ? null : [],
+                    'rules' => $fieldRules,
+                ];
+            }
+        }
+
+        return $arrayFields;
+    }
+
+    /**
+     * Process nested fields with dot notation (e.g., 'notifications.email').
+     * These are grouped and become complex types in the DTO.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, string>  $typeMapping
+     * @return array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>
+     */
+    private function processNestedFields(array $rules, array $typeMapping): array
+    {
+        $nestedGroups = [];
+        $processedFields = [];
+
+        // Group nested fields by their base name
+        foreach ($rules as $fieldName => $rule) {
+            if (str_contains($fieldName, '.') && !str_contains($fieldName, '*')) {
+                $parts = explode('.', $fieldName);
+                $baseName = $parts[0];
+                $nestedName = implode('.', array_slice($parts, 1));
+
+                if (!isset($nestedGroups[$baseName])) {
+                    $nestedGroups[$baseName] = [];
+                }
+
+                $fieldRules = is_string($rule) ? explode('|', $rule) : (array) $rule;
+                $fieldType = $this->inferType($fieldRules, $typeMapping);
+                $isNullable = in_array('nullable', $fieldRules);
+
+                $nestedGroups[$baseName][$nestedName] = [
+                    'type' => $fieldType,
+                    'nullable' => $isNullable,
+                    'rules' => $fieldRules,
+                ];
+            }
+        }
+
+        foreach ($nestedGroups as $baseName => $nestedFields) {
+            $nestedTypeDefinition = $this->buildNestedTypeDefinition($nestedFields);
+
+            $processedFields[$baseName] = [
+                'type' => "array{" . $nestedTypeDefinition . "}",
+                'nullable' => false, 
+                'default' => [],
+                'name' => $baseName,
+                'is_array' => true,
+                'has_default' => true,
+                'default_value' => [],
+                'rules' => ['array'], 
+            ];
+        }
+
+        return $processedFields;
+    }
+
+    /**
+     * Build type definition for nested fields.
+     *
+     * @param  array<string, array{type: string, nullable: bool, rules: array<string>}>  $nestedFields
+     */
+    private function buildNestedTypeDefinition(array $nestedFields): string
+    {
+        $typeDefinitions = [];
+
+        foreach ($nestedFields as $fieldName => $fieldInfo) {
+            $type = $fieldInfo['type'];
+            if ($fieldInfo['nullable']) {
+                $type = "?{$type}";
+            }
+            $typeDefinitions[] = "{$fieldName}: {$type}";
+        }
+
+        return implode(', ', $typeDefinitions);
+    }
+
+    /**
+     * Check if a field name represents a nested field rule.
+     *
+     * @param string $fieldName
+     * @return bool
+     */
+    private function isNestedFieldRule(string $fieldName): bool
+    {
+        if (str_contains($fieldName, '*')) {
+            return true;
+        }
+
+        if (str_contains($fieldName, '.')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -206,7 +368,6 @@ class FormRequestParser
      */
     private function inferType(array $rules, array $typeMapping): string
     {
-        // Check for explicit type rules
         foreach ($rules as $rule) {
             $ruleName = explode(':', $rule)[0];
 
@@ -215,7 +376,6 @@ class FormRequestParser
             }
         }
 
-        // Check for common patterns
         if (in_array('array', $rules)) {
             return 'array';
         }
@@ -228,11 +388,10 @@ class FormRequestParser
             return 'float';
         }
 
-        if (in_array('boolean', $rules) || in_array('bool', $rules)) {
+        if (in_array('boolean', $rules) || in_array('bool', $rules) || in_array('accepted', $rules)) {
             return 'bool';
         }
 
-        // Default to string
         return 'string';
     }
 
@@ -269,7 +428,6 @@ class FormRequestParser
      */
     private function getDefaultValue(array $rules, string $type): mixed
     {
-        // Check for explicit default in rules
         foreach ($rules as $rule) {
             if (str_starts_with($rule, 'default:')) {
                 $value = substr($rule, 8);
@@ -278,7 +436,6 @@ class FormRequestParser
             }
         }
 
-        // Return appropriate null/empty values
         if (in_array('nullable', $rules)) {
             return null;
         }
@@ -326,5 +483,93 @@ class FormRequestParser
         } catch (\Exception) {
             return null;
         }
+    }    
+    
+    /**
+     * Get type mapping configuration.
+     *
+     * @return array<string, string>
+     */
+    private function getTypeMapping(): array
+    {
+        return config('laravel-dto.type_mapping', [
+            'accepted' => 'bool',
+            'accepted_if' => 'bool',
+            'boolean' => 'bool',
+            'declined' => 'bool',
+            'declined_if' => 'bool',
+            'active_url' => 'string',
+            'alpha' => 'string',
+            'alpha_dash' => 'string',
+            'alpha_num' => 'string',
+            'ascii' => 'string',
+            'confirmed' => 'string',
+            'current_password' => 'string',
+            'different' => 'string',
+            'doesnt_start_with' => 'string',
+            'doesnt_end_with' => 'string',
+            'email' => 'string',
+            'ends_with' => 'string',
+            'hex_color' => 'string',
+            'lowercase' => 'string',
+            'mac_address' => 'string',
+            'not_regex' => 'string',
+            'regex' => 'string',
+            'same' => 'string',
+            'starts_with' => 'string',
+            'string' => 'string',
+            'uppercase' => 'string',
+            'url' => 'string',
+            'ulid' => 'string',
+            'uuid' => 'string',
+            'between' => 'float',
+            'decimal' => 'float',
+            'digits' => 'int',
+            'digits_between' => 'int',
+            'gt' => 'float',
+            'gte' => 'float',
+            'integer' => 'int',
+            'lt' => 'float',
+            'lte' => 'float',
+            'max' => 'float',
+            'max_digits' => 'int',
+            'min' => 'float',
+            'min_digits' => 'int',
+            'multiple_of' => 'float',
+            'numeric' => 'float',
+            'size' => 'float',
+            'array' => 'array',
+            'contains' => 'array',
+            'distinct' => 'array',
+            'in' => 'string',
+            'in_array' => 'string',
+            'list' => 'array',
+            'not_in' => 'string',
+            'required_array_keys' => 'array',
+            'after' => 'Illuminate\\Support\\Carbon',
+            'after_or_equal' => 'Illuminate\\Support\\Carbon',
+            'before' => 'Illuminate\\Support\\Carbon',
+            'before_or_equal' => 'Illuminate\\Support\\Carbon',
+            'date' => 'Illuminate\\Support\\Carbon',
+            'date_equals' => 'Illuminate\\Support\\Carbon',
+            'date_format' => 'Illu',
+            'timezone' => 'string',
+            'dimensions' => 'Illuminate\\Http\\UploadedFile',
+            'extensions' => 'Illuminate\\Http\\UploadedFile',
+            'file' => 'Illuminate\\Http\\UploadedFile',
+            'image' => 'Illuminate\\Http\\UploadedFile',
+            'mimes' => 'Illuminate\\Http\\UploadedFile',
+            'mimetypes' => 'Illuminate\\Http\\UploadedFile',
+            'exists' => 'mixed',
+            'unique' => 'mixed',
+            'ip' => 'string',
+            'ipv4' => 'string',
+            'ipv6' => 'string',
+            'json' => 'array',
+            'enum' => 'mixed',
+            'bool' => 'bool',
+            'int' => 'int',
+            'float' => 'float',
+        ]);
     }
 }

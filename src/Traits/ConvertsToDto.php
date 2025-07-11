@@ -37,28 +37,7 @@ trait ConvertsToDto
             throw new RuntimeException("DTO class [{$dtoClass}] must have a 'fromRequest' method.");
         }
 
-        // Ensure validation has been run (in case someone calls this manually)
-        // This is usually automatic when injected into controller methods
-        if (! $this->hasValidated()) {
-            $this->validateResolved();
-        }
-
         return $dtoClass::fromRequest($this);
-    }
-
-    /**
-     * Check if the request has been validated.
-     */
-    private function hasValidated(): bool
-    {
-        try {
-            // Try to access validated data - if no exception, it means validation ran
-            $this->validated();
-
-            return true;
-        } catch (\Exception) {
-            return false;
-        }
     }
 
     /**
@@ -68,7 +47,6 @@ trait ConvertsToDto
      */
     public function getDtoClass(): string
     {
-        // Check if UseDto attribute is present
         $reflection = new ReflectionClass(static::class);
         $attributes = $reflection->getAttributes(UseDto::class);
 
@@ -78,12 +56,10 @@ trait ConvertsToDto
             return $attribute->dtoClass;
         }
 
-        // Fall back to convention-based naming
         $requestClass = static::class;
         $baseName = class_basename($requestClass);
         $namespace = $this->getDtoNamespace();
 
-        // Convert CreateArticleRequest to CreateArticleData
         $dtoName = $this->convertRequestNameToDto($baseName);
 
         return "{$namespace}\\{$dtoName}";
