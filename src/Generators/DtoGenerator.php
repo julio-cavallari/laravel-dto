@@ -374,6 +374,17 @@ class DtoGenerator
     }
 
     /**
+     * Get the full DTO class name including namespace.
+     */
+    public function getDtoFullClassName(string $formRequestClassName, ?string $customDtoClass = null): string
+    {
+        $dtoNamespace = $this->getDtoNamespace();
+        $dtoClassName = $customDtoClass ? class_basename($customDtoClass) : $this->generateDtoClassName($formRequestClassName);
+
+        return $dtoNamespace . '\\' . $dtoClassName;
+    }
+
+    /**
      * Check if Form Request already has DTO functionality.
      */
     public function hasFormRequestDtoFunctionality(string $formRequestPath): bool

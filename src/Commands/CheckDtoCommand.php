@@ -27,7 +27,7 @@ class CheckDtoCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Check which Form Requests have corresponding DTOs';
+    protected $description = 'Check which Form Requests have corresponding DTOs and display their DTO class names';
 
     /**
      * Execute the console command.
@@ -108,7 +108,7 @@ class CheckDtoCommand extends Command
     /**
      * Analyze a single Form Request file.
      *
-     * @return array{name: string, path: string, dto_path: string|null, has_dto: bool, custom_dto: string|null, parseable: bool, fields_count: int}
+     * @return array{name: string, path: string, dto_path: string|null, has_dto: bool, custom_dto: string|null, parseable: bool, fields_count: int, dto_class: string|null}
      */
     private function analyzeFormRequest(string $filePath, FormRequestParser $parser, DtoGenerator $generator): array
     {
@@ -121,8 +121,9 @@ class CheckDtoCommand extends Command
         $className = $parsedData['class_name'];
         $customDtoClass = $parsedData['custom_dto_class'] ?? null;
 
-        // Get expected DTO path
+        // Get expected DTO path and full class name
         $dtoPath = $generator->getDtoPath($className, $customDtoClass);
+        $dtoFullClassName = $generator->getDtoFullClassName($className, $customDtoClass);
         $hasDto = File::exists($dtoPath);
 
         return [
@@ -132,6 +133,8 @@ class CheckDtoCommand extends Command
             'expected_dto_path' => $dtoPath,
             'has_dto' => $hasDto,
             'custom_dto' => $customDtoClass,
+            'dto_class' => $hasDto ? $dtoFullClassName : null,
+            'expected_dto_class' => $dtoFullClassName,
             'parseable' => true,
             'fields_count' => count($parsedData['fields']),
             'namespace' => $parsedData['namespace'],
@@ -201,6 +204,7 @@ class CheckDtoCommand extends Command
             $name = $request['name'];
             $fieldsCount = $request['fields_count'];
             $customDto = $request['custom_dto'] ? ' (Custom DTO)' : '';
+            $dtoClass = $request['dto_class'] ?? $request['expected_dto_class'];
 
             if ($details) {
                 $this->line("   <fg={$color}>• {$name}</> ({$fieldsCount} fields){$customDto}");
@@ -208,14 +212,21 @@ class CheckDtoCommand extends Command
 
                 if ($request['has_dto']) {
                     $this->line("     DTO:  <fg=gray>{$request['dto_path']}</>");
+                    $this->line("     DTO Class: <fg=cyan>{$dtoClass}</>");
                 } else {
                     $this->line("     Expected DTO: <fg=gray>{$request['expected_dto_path']}</>");
+                    $this->line("     Expected DTO Class: <fg=yellow>{$dtoClass}</>");
                 }
 
                 $this->line("     Namespace: <fg=gray>{$request['namespace']}</>");
                 $this->newLine();
             } else {
+                $dtoInfo = $request['has_dto']
+                    ? "<fg=cyan>→ {$dtoClass}</>"
+                    : "<fg=yellow>→ {$dtoClass} (missing)</>";
+
                 $this->line("   <fg={$color}>• {$name}</> ({$fieldsCount} fields){$customDto}");
+                $this->line("     {$dtoInfo}");
             }
         }
     }
