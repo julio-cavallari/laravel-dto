@@ -1,0 +1,9 @@
+use JulioCavallari\LaravelDto\Contracts\HasDto;
+use JulioCavallari\LaravelDto\Traits\ConvertsToDto;
+
+class {{ form_request_class }} extends FormRequest implements HasDto
+{
+    use ConvertsToDto;
+
+    // ...existing code...
+}

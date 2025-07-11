@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+{{ use_statements }}
+/**
+ * Generated DTO class
+ *
+ * This class was automatically generated from a Form Request.
+ *
+ * @generated {{ timestamp }}
+ */
+{{ class_declaration }}
+{
+{{ constructor }}
+{{ from_request_method }}
+}
