@@ -15,5 +15,6 @@ namespace {{ namespace }};
 {{ class_declaration }}
 {
 {{ constructor }}
+
 {{ from_request_method }}
 }
