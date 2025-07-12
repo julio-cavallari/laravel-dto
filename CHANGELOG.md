@@ -2,6 +2,12 @@
 
 All notable changes to `laravel-dto` will be documented in this file.
 
+## [1.0.1] - 2025-07-12
+
+### Added
+
+- Added PHPDoc `@method` annotation for `toDto()` method to Form Requests for better IDE support
+
 ## [1.0.0] - 2025-07-11
 
 ### Added
