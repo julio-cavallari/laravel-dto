@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-dto` will be documented in this file.
 
+## [1.0.2] - 2025-07-12
+
+### Added
+
+- **Automatic type conversion for Carbon dates in `fromRequest` method**
+  - Added automatic conversion using `Carbon::parse()` for `date` rules
+  - Added automatic conversion using `Carbon::createFromFormat()` for `date_format` rules
+
 ## [1.0.1] - 2025-07-12
 
 ### Added

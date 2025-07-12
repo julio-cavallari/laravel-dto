@@ -115,7 +115,6 @@ class DtoGenerator
             $name = $field['name'];
             $default = $this->formatDefaultValue($field);
 
-            // Generate PHP parameter
             $param = "        public {$readonly}{$phpType} \${$name}";
 
             if ($default !== null) {
@@ -124,7 +123,6 @@ class DtoGenerator
 
             $params[] = $param;
 
-            // Check if this is a complex type that needs PHPDoc
             if ($this->isComplexType($originalType)) {
                 $hasComplexTypes = true;
                 $phpDocType = $field['nullable'] ? "{$originalType}|null" : $originalType;
@@ -134,7 +132,6 @@ class DtoGenerator
 
         $paramString = implode(",\n", $params);
 
-        // Add PHPDoc if we have complex types
         if ($hasComplexTypes) {
             $phpDocString = "    /**\n".implode("\n", $phpDocParams)."\n     */\n";
 
@@ -166,26 +163,111 @@ class DtoGenerator
         }
 
         $assignments = [];
+        $conversions = [];
 
         foreach ($fields as $field) {
             $name = $field['name'];
+            $type = $field['type'];
             $default = $this->formatDefaultValueForMethod($field);
 
-            if ($default !== null) {
-                $assignments[] = "            {$name}: \$request->validated('{$name}', {$default})";
+            $needsConversion = $this->needsTypeConversion($type);
+
+            if ($needsConversion) {
+                $varName = "\${$name}";
+                $validatedCall = $default !== null
+                    ? "\$request->validated('{$name}', {$default})"
+                    : "\$request->validated('{$name}')";
+
+                $conversions[] = $this->generateTypeConversion($name, $type, $field['nullable'], $validatedCall, $field['rules']);
+                $assignments[] = "            {$name}: {$varName}";
             } else {
-                $assignments[] = "            {$name}: \$request->validated('{$name}')";
+                if ($default !== null) {
+                    $assignments[] = "            {$name}: \$request->validated('{$name}', {$default})";
+                } else {
+                    $assignments[] = "            {$name}: \$request->validated('{$name}')";
+                }
             }
         }
 
         $assignmentString = implode(",\n", $assignments);
+        $conversionString = empty($conversions) ? '' : implode("\n", $conversions) . "\n\n";
 
         return "    public static function fromRequest({$formRequestClass} \$request): self
     {
-        return new self(
+{$conversionString}        return new self(
 {$assignmentString},
         );
     }";
+    }
+
+    /**
+     * Check if a field type needs conversion from validated data.
+     */
+    private function needsTypeConversion(string $type): bool
+    {
+        return in_array($type, [
+            'Carbon\\Carbon',
+            '\\Carbon\\Carbon',
+        ], true);
+    }
+
+    /**
+     * Generate type conversion code for a field.
+     *
+     * @param array<string> $rules
+     */
+    private function generateTypeConversion(string $fieldName, string $type, bool $nullable, string $validatedCall, array $rules): string
+    {
+        $varName = "\${$fieldName}";
+
+        if ($type === 'Carbon\\Carbon' || $type === '\\Carbon\\Carbon') {
+            $dateFormat = $this->extractDateFormat($rules);
+
+            if(!$nullable && !$dateFormat) {
+                return "        {$varName} = {$validatedCall};\n" .
+                        "        if (!({$varName} instanceof \\Carbon\\Carbon)) {\n" .
+                        "            {$varName} = \\Carbon\\Carbon::parse({$varName});\n" .
+                        "        }";
+            }
+
+            if ($nullable) {
+                if ($dateFormat) {
+                    return "        {$varName} = {$validatedCall};\n" .
+                           "        if ({$varName} !== null && !({$varName} instanceof \\Carbon\\Carbon)) {\n" .
+                           "            {$varName} = \\Carbon\\Carbon::createFromFormat('{$dateFormat}', {$varName});\n" .
+                           "        }";
+                }
+
+                return "        {$varName} = {$validatedCall};\n" .
+                        "        if ({$varName} !== null && !({$varName} instanceof \\Carbon\\Carbon)) {\n" .
+                        "            {$varName} = \\Carbon\\Carbon::parse({$varName});\n" .
+                        "        }";
+            } 
+
+            return "        {$varName} = {$validatedCall};\n" .
+                    "        if (!({$varName} instanceof \\Carbon\\Carbon)) {\n" .
+                    "            {$varName} = \\Carbon\\Carbon::createFromFormat('{$dateFormat}', {$varName});\n" .
+                    "        }";
+
+
+        }
+
+        return "        {$varName} = {$validatedCall};";
+    }
+
+    /**
+     * Extract date format from validation rules.
+     *
+     * @param array<string> $rules
+     */
+    private function extractDateFormat(array $rules): ?string
+    {
+        foreach ($rules as $rule) {
+            if (str_starts_with($rule, 'date_format:')) {
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -209,12 +291,10 @@ class DtoGenerator
      */
     private function getPhpType(string $type): string
     {
-        // Convert complex array types to simple 'array'
         if (str_starts_with($type, 'array<') || str_starts_with($type, 'array{')) {
             return 'array';
         }
 
-        // Keep other types as is
         return $type;
     }
 
@@ -352,16 +432,13 @@ class DtoGenerator
 
         $stubContent = file_get_contents($stubPath);
 
-        // Get the DTO class name for this form request
         $dtoClassName = $parsedData['custom_dto_class']
             ? class_basename($parsedData['custom_dto_class'])
             : $this->generateDtoClassName($formRequestClass);
 
-        // Get the full DTO class path for docblock using configuration
         $dtoNamespace = config('laravel-dto.namespace', 'App\\DTOs');
         $dtoFullClassPath = $parsedData['custom_dto_class'] ?: $dtoNamespace.'\\'.$dtoClassName;
 
-        // Extract the original content from the Form Request class
         $originalContent = $this->extractFormRequestContent($parsedData['file_path']);
 
         $replacements = [
@@ -386,19 +463,17 @@ class DtoGenerator
 
         $content = file_get_contents($filePath);
 
-        // Find the start and end of the class body
         $classPattern = '/class\s+\w+[^{]*\{(.*)\}$/s';
 
         if (preg_match($classPattern, $content, $matches)) {
             $classBody = $matches[1];
 
-            // Split into lines and process
             $lines = explode("\n", $classBody);
 
-            // Remove empty lines at the beginning and end
             while ($lines !== [] && trim($lines[0]) === '') {
                 array_shift($lines);
             }
+
             while ($lines !== [] && trim($lines[count($lines) - 1]) === '') {
                 array_pop($lines);
             }
@@ -407,7 +482,6 @@ class DtoGenerator
                 return '    // No content found in original Form Request';
             }
 
-            // Find the minimum indentation level (excluding empty lines)
             $minIndent = PHP_INT_MAX;
             foreach ($lines as $line) {
                 if (trim($line) !== '') {
@@ -416,13 +490,11 @@ class DtoGenerator
                 }
             }
 
-            // Normalize indentation and add base 4-space indentation
             $normalizedLines = [];
             foreach ($lines as $line) {
                 if (trim($line) === '') {
                     $normalizedLines[] = '';
                 } else {
-                    // Remove minimum indentation and add 4 spaces base indentation
                     $relativeLine = substr($line, $minIndent);
                     $normalizedLines[] = '    '.$relativeLine;
                 }
