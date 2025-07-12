@@ -88,7 +88,7 @@ class DtoTemplate
 
         // Check if constructor_params already includes PHPDoc and function declaration
         if (str_contains($data['constructor_params'], 'public function __construct(')) {
-            return $data['constructor_params'] . ",\n    ) {\n    }";
+            return $data['constructor_params'].",\n    ) {\n    }";
         }
 
         return "    public function __construct(\n{$data['constructor_params']},\n    ) {\n    }";

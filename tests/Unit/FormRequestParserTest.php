@@ -5,7 +5,7 @@ declare(strict_types=1);
 use JulioCavallari\LaravelDto\Parsers\FormRequestParser;
 
 beforeEach(function (): void {
-    $this->parser = new FormRequestParser();
+    $this->parser = new FormRequestParser;
 });
 
 it('can parse simple form request rules', function (): void {
@@ -149,8 +149,6 @@ it('handles complex mixed scenarios', function (): void {
     // Total of 5 fields (name, tags, preferences, profile, settings)
     expect($result['fields'])->toHaveCount(5);
 });
-
-
 
 function createTempFormRequest(array $rules): string
 {

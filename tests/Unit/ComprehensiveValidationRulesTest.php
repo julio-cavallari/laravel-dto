@@ -5,7 +5,7 @@ declare(strict_types=1);
 use JulioCavallari\LaravelDto\Parsers\FormRequestParser;
 
 beforeEach(function (): void {
-    $this->parser = new FormRequestParser();
+    $this->parser = new FormRequestParser;
 });
 
 it('handles all basic validation rules with correct type inference', function (): void {
@@ -393,7 +393,7 @@ it('handles Laravel rule objects and closure validation', function (): void {
     $stringFields = [
         'enum_field', 'password_field', 'custom_validation', 'phone_number',
         'credit_card', 'hex_color', 'base64_image', 'doesnt_start_with',
-        'doesnt_end_with', 'starts_with', 'ends_with', 'lowercase', 'uppercase'
+        'doesnt_end_with', 'starts_with', 'ends_with', 'lowercase', 'uppercase',
     ];
 
     foreach ($stringFields as $fieldName) {

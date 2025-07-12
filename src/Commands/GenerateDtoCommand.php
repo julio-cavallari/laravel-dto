@@ -42,8 +42,8 @@ class GenerateDtoCommand extends Command
         $dryRun = $this->option('dry-run');
 
         try {
-            $parser = new FormRequestParser();
-            $generator = new DtoGenerator();
+            $parser = new FormRequestParser;
+            $generator = new DtoGenerator;
 
             if ($requestName) {
                 // Generate DTO for specific Form Request

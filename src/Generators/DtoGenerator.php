@@ -136,8 +136,9 @@ class DtoGenerator
 
         // Add PHPDoc if we have complex types
         if ($hasComplexTypes) {
-            $phpDocString = "    /**\n" . implode("\n", $phpDocParams) . "\n     */\n";
-            return $phpDocString . "    public function __construct(\n" . $paramString;
+            $phpDocString = "    /**\n".implode("\n", $phpDocParams)."\n     */\n";
+
+            return $phpDocString."    public function __construct(\n".$paramString;
         }
 
         return $paramString;
@@ -214,22 +215,6 @@ class DtoGenerator
         }
 
         // Keep other types as is
-        return $type;
-    }
-
-    /**
-     * Get PHPDoc type annotation for a field (includes complex types).
-     *
-     * @param  array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}  $field
-     */
-    private function getPhpDocType(array $field): string
-    {
-        $type = $field['type'];
-
-        if ($field['nullable']) {
-            return "{$type}|null";
-        }
-
         return $type;
     }
 
@@ -381,7 +366,7 @@ class DtoGenerator
         $dtoNamespace = $this->getDtoNamespace();
         $dtoClassName = $customDtoClass ? class_basename($customDtoClass) : $this->generateDtoClassName($formRequestClassName);
 
-        return $dtoNamespace . '\\' . $dtoClassName;
+        return $dtoNamespace.'\\'.$dtoClassName;
     }
 
     /**

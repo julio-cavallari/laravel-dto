@@ -125,6 +125,7 @@ class FormRequestParser
         // Extract the return array more robustly
         if (preg_match('/return\s*\[(.*?)\];/s', $methodCode, $matches)) {
             $rulesString = $matches[1];
+
             return $this->parseRulesString($rulesString);
         }
 
@@ -255,12 +256,12 @@ class FormRequestParser
 
         // Group nested fields by their base name
         foreach ($rules as $fieldName => $rule) {
-            if (str_contains($fieldName, '.') && !str_contains($fieldName, '*')) {
+            if (str_contains($fieldName, '.') && ! str_contains($fieldName, '*')) {
                 $parts = explode('.', $fieldName);
                 $baseName = $parts[0];
                 $nestedName = implode('.', array_slice($parts, 1));
 
-                if (!isset($nestedGroups[$baseName])) {
+                if (! isset($nestedGroups[$baseName])) {
                     $nestedGroups[$baseName] = [];
                 }
 
@@ -280,14 +281,14 @@ class FormRequestParser
             $nestedTypeDefinition = $this->buildNestedTypeDefinition($nestedFields);
 
             $processedFields[$baseName] = [
-                'type' => "array{" . $nestedTypeDefinition . "}",
-                'nullable' => false, 
+                'type' => 'array{'.$nestedTypeDefinition.'}',
+                'nullable' => false,
                 'default' => [],
                 'name' => $baseName,
                 'is_array' => true,
                 'has_default' => true,
                 'default_value' => [],
-                'rules' => ['array'], 
+                'rules' => ['array'],
             ];
         }
 
@@ -316,9 +317,6 @@ class FormRequestParser
 
     /**
      * Check if a field name represents a nested field rule.
-     *
-     * @param string $fieldName
-     * @return bool
      */
     private function isNestedFieldRule(string $fieldName): bool
     {
@@ -483,8 +481,8 @@ class FormRequestParser
         } catch (\Exception) {
             return null;
         }
-    }    
-    
+    }
+
     /**
      * Get type mapping configuration.
      *

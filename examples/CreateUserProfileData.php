@@ -29,8 +29,7 @@ readonly class CreateUserProfileData
         public array $address,   // array{street: string, city: string, state: string, zip_code: string, country: string}
         public array $preferences, // array{theme: string, language: string, notifications: bool, timezone: ?string}
         public array $social_links, // array{twitter: ?string, linkedin: ?string, github: ?string}
-    ) {
-    }
+    ) {}
 
     /**
      * Example of how the data would look when instantiated:
@@ -51,25 +50,25 @@ readonly class CreateUserProfileData
                 'first_name' => 'John',
                 'last_name' => 'Doe',
                 'birth_date' => null,
-                'bio' => 'Software developer passionate about clean code'
+                'bio' => 'Software developer passionate about clean code',
             ],
             address: [
                 'street' => '123 Main St',
                 'city' => 'Anytown',
                 'state' => 'CA',
                 'zip_code' => '12345',
-                'country' => 'USA'
+                'country' => 'USA',
             ],
             preferences: [
                 'theme' => 'dark',
                 'language' => 'en',
                 'notifications' => true,
-                'timezone' => 'America/New_York'
+                'timezone' => 'America/New_York',
             ],
             social_links: [
                 'twitter' => 'https://twitter.com/johndoe',
                 'linkedin' => 'https://linkedin.com/in/johndoe',
-                'github' => 'https://github.com/johndoe'
+                'github' => 'https://github.com/johndoe',
             ]
         );
     }

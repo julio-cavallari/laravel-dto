@@ -41,7 +41,7 @@ class CheckDtoCommand extends Command
         $details = $this->option('details');
 
         // If no filter specified, show both
-        if (!$showMissing && !$showExisting) {
+        if (! $showMissing && ! $showExisting) {
             $showMissing = true;
             $showExisting = true;
         }
@@ -65,13 +65,13 @@ class CheckDtoCommand extends Command
     /**
      * Analyze all Form Requests and their DTO status.
      *
-     * @return array{missing: array, existing: array, total: int}
+     * @return array{missing: array<int, array{name: string, path: string, dto_path: string|null, expected_dto_path: string, has_dto: bool, custom_dto: string|null, dto_class: string|null, expected_dto_class: string, parseable: bool, fields_count: int, namespace: string}>, existing: array<int, array{name: string, path: string, dto_path: string|null, expected_dto_path: string, has_dto: bool, custom_dto: string|null, dto_class: string|null, expected_dto_class: string, parseable: bool, fields_count: int, namespace: string}>, total: int}
      */
     private function analyzeFormRequests(FormRequestParser $parser, DtoGenerator $generator): array
     {
         $formRequestPath = base_path(config('laravel-dto.form_request_path', 'app/Http/Requests'));
 
-        if (!File::exists($formRequestPath)) {
+        if (! File::exists($formRequestPath)) {
             throw new \Exception("Form Request directory not found: {$formRequestPath}");
         }
 
@@ -108,13 +108,13 @@ class CheckDtoCommand extends Command
     /**
      * Analyze a single Form Request file.
      *
-     * @return array{name: string, path: string, dto_path: string|null, has_dto: bool, custom_dto: string|null, parseable: bool, fields_count: int, dto_class: string|null}
+     * @return array{name: string, path: string, dto_path: string|null, expected_dto_path: string, has_dto: bool, custom_dto: string|null, dto_class: string|null, expected_dto_class: string, parseable: bool, fields_count: int, namespace: string}
      */
     private function analyzeFormRequest(string $filePath, FormRequestParser $parser, DtoGenerator $generator): array
     {
         // First check if it's a valid Form Request
-        if (!$this->isFormRequest($filePath)) {
-            throw new \Exception("Not a Form Request");
+        if (! $this->isFormRequest($filePath)) {
+            throw new \Exception('Not a Form Request');
         }
 
         $parsedData = $parser->parse($filePath);
@@ -156,7 +156,7 @@ class CheckDtoCommand extends Command
     /**
      * Display the analysis results.
      *
-     * @param array{missing: array, existing: array, total: int} $result
+     * @param  array{missing: array<int, array{name: string, path: string, dto_path: string|null, expected_dto_path: string, has_dto: bool, custom_dto: string|null, dto_class: string|null, expected_dto_class: string, parseable: bool, fields_count: int, namespace: string}>, existing: array<int, array{name: string, path: string, dto_path: string|null, expected_dto_path: string, has_dto: bool, custom_dto: string|null, dto_class: string|null, expected_dto_class: string, parseable: bool, fields_count: int, namespace: string}>, total: int}  $result
      */
     private function displayResults(array $result, bool $showMissing, bool $showExisting, bool $details): void
     {
@@ -165,27 +165,27 @@ class CheckDtoCommand extends Command
         $total = $result['total'];
 
         $this->newLine();
-        $this->info("📊 Analysis Summary:");
+        $this->info('📊 Analysis Summary:');
         $this->line("   Total Form Requests: <fg=cyan>{$total}</>");
-        $this->line("   With DTOs: <fg=green>" . count($existing) . "</>");
-        $this->line("   Without DTOs: <fg=red>" . count($missing) . "</>");
+        $this->line('   With DTOs: <fg=green>'.count($existing).'</>');
+        $this->line('   Without DTOs: <fg=red>'.count($missing).'</>');
 
-        if ($showMissing && !empty($missing)) {
+        if ($showMissing && ! empty($missing)) {
             $this->newLine();
-            $this->error("❌ Form Requests WITHOUT DTOs (" . count($missing) . "):");
+            $this->error('❌ Form Requests WITHOUT DTOs ('.count($missing).'):');
             $this->displayFormRequestList($missing, 'red', $details);
         }
 
-        if ($showExisting && !empty($existing)) {
+        if ($showExisting && ! empty($existing)) {
             $this->newLine();
-            $this->info("✅ Form Requests WITH DTOs (" . count($existing) . "):");
+            $this->info('✅ Form Requests WITH DTOs ('.count($existing).'):');
             $this->displayFormRequestList($existing, 'green', $details);
         }
 
-        if (!empty($missing)) {
+        if (! empty($missing)) {
             $this->newLine();
-            $this->comment("💡 To generate DTOs for missing Form Requests, run:");
-            $this->line("   <fg=yellow>php artisan dto:generate</>");
+            $this->comment('💡 To generate DTOs for missing Form Requests, run:');
+            $this->line('   <fg=yellow>php artisan dto:generate</>');
 
             if (count($missing) === 1) {
                 $this->line("   <fg=yellow>php artisan dto:generate {$missing[0]['name']}</>");
@@ -197,6 +197,8 @@ class CheckDtoCommand extends Command
 
     /**
      * Display a list of Form Requests.
+     *
+     * @param  array<int, array{name: string, path: string, dto_path: string|null, expected_dto_path: string, has_dto: bool, custom_dto: string|null, dto_class: string|null, expected_dto_class: string, parseable: bool, fields_count: int, namespace: string}>  $requests
      */
     private function displayFormRequestList(array $requests, string $color, bool $details): void
     {

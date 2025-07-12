@@ -3,6 +3,11 @@
   "description": "Laravel package to automatically generate DTOs from Form Request classes",
   "type": "library",
   "license": "MIT",
+  "homepage": "https://github.com/julio-cavallari/laravel-dto",
+  "support": {
+    "issues": "https://github.com/julio-cavallari/laravel-dto/issues",
+    "source": "https://github.com/julio-cavallari/laravel-dto"
+  },
   "keywords": [
     "laravel",
     "dto",
@@ -13,7 +18,7 @@
   "authors": [
     {
       "name": "Julio Cavallari",
-      "email": "julio@example.com"
+      "email": "julio.cesar.lopes.cavallari.filho@gmail.com"
     }
   ],
   "require": {
@@ -69,6 +74,6 @@
       "pestphp/pest-plugin": true
     }
   },
-  "minimum-stability": "stable",
+  "minimum-stability": "dev",
   "prefer-stable": true
 }
