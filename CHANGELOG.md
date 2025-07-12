@@ -2,27 +2,11 @@
 
 All notable changes to `laravel-dto` will be documented in this file.
 
-## [1.0.0] - 2025-07-10
+## [1.0.0] - 2025-07-11
 
 ### Added
 
-- Initial release
-- `dto:generate` Artisan command for automatic DTO generation
-- Automatic DTO generation from Form Request classes
-- Support for type inference from validation rules
-- `UseDto` attribute for custom DTO class specification
-- `ConvertsToDto` trait for automatic DTO conversion in Form Requests
-- `HasDto` interface for Form Requests with DTO capability
-- `--enhance-requests` option to add `toDto()` method to Form Requests
-- Stub-based template system for better maintainability
-- Automatic validation safeguards in `toDto()` method
-- Configurable namespaces and output paths
-- Readonly DTO generation with PHP 8.2+ features
-- `fromRequest` static method generation
-- Support for nullable fields and default values
-- Comprehensive configuration options
-- PHP 8.2+ support
-- Laravel 11.0+ support
+- Initial release with all core features and functionality.
 
 ### Features
 
