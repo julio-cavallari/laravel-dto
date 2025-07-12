@@ -1,9 +1,18 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ dto_full_class_path }};
+use Illuminate\Foundation\Http\FormRequest;
 use JulioCavallari\LaravelDto\Contracts\HasDto;
 use JulioCavallari\LaravelDto\Traits\ConvertsToDto;
 
+/**
+ * @method {{ dto_class_name }} toDto() Convert the validated data from this Form Request into a corresponding DTO.
+ */
 class {{ form_request_class }} extends FormRequest implements HasDto
 {
     use ConvertsToDto;
 
-    // ...existing code...
+{{ original_content }}
 }

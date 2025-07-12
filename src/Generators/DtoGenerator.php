@@ -17,7 +17,7 @@ class DtoGenerator
 
     public function __construct()
     {
-        $this->template = new DtoTemplate();
+        $this->template = new DtoTemplate;
     }
 
     /**
@@ -337,12 +337,13 @@ class DtoGenerator
     /**
      * Generate Form Request enhancement code.
      *
-     * @param  array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null}  $parsedData  Parsed Form Request data
+     * @param  array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null, file_path: string}  $parsedData  Parsed Form Request data
      * @return string Generated PHP code to add to Form Request
      */
     public function generateFormRequestEnhancement(array $parsedData): string
     {
         $formRequestClass = $parsedData['class_name'];
+        $namespace = $parsedData['namespace'];
         $stubPath = __DIR__.'/../../stubs/form-request-method.stub';
 
         if (! file_exists($stubPath)) {
@@ -351,11 +352,86 @@ class DtoGenerator
 
         $stubContent = file_get_contents($stubPath);
 
+        // Get the DTO class name for this form request
+        $dtoClassName = $parsedData['custom_dto_class']
+            ? class_basename($parsedData['custom_dto_class'])
+            : $this->generateDtoClassName($formRequestClass);
+
+        // Get the full DTO class path for docblock using configuration
+        $dtoNamespace = config('laravel-dto.namespace', 'App\\DTOs');
+        $dtoFullClassPath = $parsedData['custom_dto_class'] ?: $dtoNamespace.'\\'.$dtoClassName;
+
+        // Extract the original content from the Form Request class
+        $originalContent = $this->extractFormRequestContent($parsedData['file_path']);
+
         $replacements = [
+            '{{ namespace }}' => $namespace,
             '{{ form_request_class }}' => $formRequestClass,
+            '{{ dto_class_name }}' => $dtoClassName,
+            '{{ dto_full_class_path }}' => $dtoFullClassPath,
+            '{{ original_content }}' => $originalContent,
         ];
 
         return str_replace(array_keys($replacements), array_values($replacements), $stubContent);
+    }
+
+    /**
+     * Extract the original content from the Form Request class body.
+     */
+    private function extractFormRequestContent(string $filePath): string
+    {
+        if (! file_exists($filePath)) {
+            throw new \RuntimeException("Form Request file not found: {$filePath}");
+        }
+
+        $content = file_get_contents($filePath);
+
+        // Find the start and end of the class body
+        $classPattern = '/class\s+\w+[^{]*\{(.*)\}$/s';
+
+        if (preg_match($classPattern, $content, $matches)) {
+            $classBody = $matches[1];
+
+            // Split into lines and process
+            $lines = explode("\n", $classBody);
+
+            // Remove empty lines at the beginning and end
+            while ($lines !== [] && trim($lines[0]) === '') {
+                array_shift($lines);
+            }
+            while ($lines !== [] && trim($lines[count($lines) - 1]) === '') {
+                array_pop($lines);
+            }
+
+            if ($lines === []) {
+                return '    // No content found in original Form Request';
+            }
+
+            // Find the minimum indentation level (excluding empty lines)
+            $minIndent = PHP_INT_MAX;
+            foreach ($lines as $line) {
+                if (trim($line) !== '') {
+                    $indent = strlen($line) - strlen(ltrim($line));
+                    $minIndent = min($minIndent, $indent);
+                }
+            }
+
+            // Normalize indentation and add base 4-space indentation
+            $normalizedLines = [];
+            foreach ($lines as $line) {
+                if (trim($line) === '') {
+                    $normalizedLines[] = '';
+                } else {
+                    // Remove minimum indentation and add 4 spaces base indentation
+                    $relativeLine = substr($line, $minIndent);
+                    $normalizedLines[] = '    '.$relativeLine;
+                }
+            }
+
+            return implode("\n", $normalizedLines);
+        }
+
+        return '    // No content found in original Form Request';
     }
 
     /**

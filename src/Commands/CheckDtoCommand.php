@@ -47,8 +47,8 @@ class CheckDtoCommand extends Command
         }
 
         try {
-            $parser = new FormRequestParser();
-            $generator = new DtoGenerator();
+            $parser = new FormRequestParser;
+            $generator = new DtoGenerator;
 
             $result = $this->analyzeFormRequests($parser, $generator);
 
@@ -92,7 +92,7 @@ class CheckDtoCommand extends Command
                 } else {
                     $missing[] = $requestInfo;
                 }
-            } catch (\Exception $e) {
+            } catch (\Exception) {
                 // Skip files that can't be parsed (not valid Form Requests)
                 continue;
             }

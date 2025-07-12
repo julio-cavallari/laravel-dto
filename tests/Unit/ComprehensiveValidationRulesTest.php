@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\UploadedFile;
 use JulioCavallari\LaravelDto\Parsers\FormRequestParser;
 
 beforeEach(function (): void {
@@ -339,7 +340,7 @@ it('handles edge cases and special validation combinations', function (): void {
     foreach ($fileFields as $fieldName) {
         if (isset($result['fields'][$fieldName])) {
             // File fields should be parsed as UploadedFile
-            expect($result['fields'][$fieldName]['type'])->toBe('Illuminate\\Http\\UploadedFile');
+            expect($result['fields'][$fieldName]['type'])->toBe(UploadedFile::class);
         }
     }
 

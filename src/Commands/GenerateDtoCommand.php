@@ -42,8 +42,8 @@ class GenerateDtoCommand extends Command
         $dryRun = $this->option('dry-run');
 
         try {
-            $parser = new FormRequestParser;
-            $generator = new DtoGenerator;
+            $parser = new FormRequestParser();
+            $generator = new DtoGenerator();
 
             if ($requestName) {
                 // Generate DTO for specific Form Request
@@ -178,7 +178,7 @@ class GenerateDtoCommand extends Command
     /**
      * Enhance Form Request with toDto() functionality.
      *
-     * @param  array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null}  $parsedData
+     * @param  array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null, file_path: string}  $parsedData
      */
     private function enhanceFormRequest(string $filePath, DtoGenerator $generator, array $parsedData, bool $dryRun): void
     {
@@ -194,56 +194,17 @@ class GenerateDtoCommand extends Command
             $this->line('📝 Would enhance Form Request with:');
             $this->line($enhancementCode);
         } else {
-            $this->addTraitToFormRequest($filePath);
+            $this->addTraitToFormRequest($filePath, $enhancementCode);
             $this->line('✅ Enhanced Form Request with toDto() method');
         }
     }
 
     /**
-     * Add trait and interface to existing Form Request.
+     * Add trait and interface to existing Form Request using the generated enhancement code.
      */
-    private function addTraitToFormRequest(string $filePath): void
+    private function addTraitToFormRequest(string $filePath, string $enhancementCode): void
     {
-        $content = File::get($filePath);
-
-        // Add use statements at the top
-        $useStatements = [
-            'use JulioCavallari\LaravelDto\Contracts\HasDto;',
-            'use JulioCavallari\LaravelDto\Traits\ConvertsToDto;',
-        ];
-
-        // Find where to insert use statements
-        $pattern = '/^use\s+[^;]+;$/m';
-        if (preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
-            // Insert after last use statement
-            $lastMatch = end($matches[0]);
-            $insertPosition = $lastMatch[1] + strlen($lastMatch[0]);
-            $newUseStatements = "\n".implode("\n", $useStatements);
-            $content = substr_replace($content, $newUseStatements, $insertPosition, 0);
-        } else {
-            // Insert after <?php and namespace
-            $pattern = '/^namespace\s+[^;]+;$/m';
-            if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
-                $insertPosition = $matches[0][1] + strlen($matches[0][0]);
-                $newUseStatements = "\n\n".implode("\n", $useStatements);
-                $content = substr_replace($content, $newUseStatements, $insertPosition, 0);
-            }
-        }
-
-        // Add implements HasDto to class declaration
-        $pattern = '/class\s+(\w+)\s+extends\s+FormRequest/';
-        $replacement = 'class $1 extends FormRequest implements HasDto';
-        $content = preg_replace($pattern, $replacement, $content);
-
-        // Add trait usage inside class
-        $pattern = '/class\s+\w+[^{]*\{/';
-        if (preg_match($pattern, (string) $content, $matches, PREG_OFFSET_CAPTURE)) {
-            $insertPosition = $matches[0][1] + strlen($matches[0][0]);
-            $traitUsage = "\n    use ConvertsToDto;\n";
-            $content = substr_replace($content, $traitUsage, $insertPosition, 0);
-        }
-
-        File::put($filePath, $content);
+        File::put($filePath, $enhancementCode);
     }
 
     /**

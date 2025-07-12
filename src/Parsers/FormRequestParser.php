@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace JulioCavallari\LaravelDto\Parsers;
 
+use Illuminate\Support\Carbon;
+use Illuminate\Http\UploadedFile;
 use JulioCavallari\LaravelDto\Attributes\UseDto;
 use ReflectionClass;
 use ReflectionMethod;
@@ -19,7 +21,7 @@ class FormRequestParser
      * Parse a Form Request file to extract field information.
      *
      * @param  string  $filePath  Path to the Form Request file
-     * @return array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null} Parsed data containing class info and fields
+     * @return array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null, file_path: string} Parsed data containing class info and fields
      */
     public function parse(string $filePath): array
     {
@@ -49,6 +51,7 @@ class FormRequestParser
             'form_request_class' => $className,
             'fields' => $fields,
             'custom_dto_class' => $customDtoClass,
+            'file_path' => $filePath,
         ];
     }
 
@@ -174,9 +177,11 @@ class FormRequestParser
             if ($this->isNestedFieldRule($fieldName)) {
                 continue;
             }
-
             // Skip fields that are already processed as array or nested fields
-            if (isset($arrayFields[$fieldName]) || isset($nestedFields[$fieldName])) {
+            if (isset($arrayFields[$fieldName])) {
+                continue;
+            }
+            if (isset($nestedFields[$fieldName])) {
                 continue;
             }
 
@@ -323,12 +328,7 @@ class FormRequestParser
         if (str_contains($fieldName, '*')) {
             return true;
         }
-
-        if (str_contains($fieldName, '.')) {
-            return true;
-        }
-
-        return false;
+        return str_contains($fieldName, '.');
     }
 
     /**
@@ -544,20 +544,20 @@ class FormRequestParser
             'list' => 'array',
             'not_in' => 'string',
             'required_array_keys' => 'array',
-            'after' => 'Illuminate\\Support\\Carbon',
-            'after_or_equal' => 'Illuminate\\Support\\Carbon',
-            'before' => 'Illuminate\\Support\\Carbon',
-            'before_or_equal' => 'Illuminate\\Support\\Carbon',
-            'date' => 'Illuminate\\Support\\Carbon',
-            'date_equals' => 'Illuminate\\Support\\Carbon',
+            'after' => Carbon::class,
+            'after_or_equal' => Carbon::class,
+            'before' => Carbon::class,
+            'before_or_equal' => Carbon::class,
+            'date' => Carbon::class,
+            'date_equals' => Carbon::class,
             'date_format' => 'Illu',
             'timezone' => 'string',
-            'dimensions' => 'Illuminate\\Http\\UploadedFile',
-            'extensions' => 'Illuminate\\Http\\UploadedFile',
-            'file' => 'Illuminate\\Http\\UploadedFile',
-            'image' => 'Illuminate\\Http\\UploadedFile',
-            'mimes' => 'Illuminate\\Http\\UploadedFile',
-            'mimetypes' => 'Illuminate\\Http\\UploadedFile',
+            'dimensions' => UploadedFile::class,
+            'extensions' => UploadedFile::class,
+            'file' => UploadedFile::class,
+            'image' => UploadedFile::class,
+            'mimes' => UploadedFile::class,
+            'mimetypes' => UploadedFile::class,
             'exists' => 'mixed',
             'unique' => 'mixed',
             'ip' => 'string',
