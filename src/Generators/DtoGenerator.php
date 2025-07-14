@@ -45,7 +45,7 @@ class DtoGenerator
             'constructor_params' => $constructorParams,
             'from_request_method' => $fromRequestMethod,
             'readonly' => $this->isReadonly(),
-            'generate_from_request' => $this->shouldGenerateFromRequest(),
+            'generate_from_request' => $this->shouldGenerateFromRequest() && $fromRequestMethod !== '',
             'use_imports' => true,
         ]);
     }
@@ -242,7 +242,7 @@ class DtoGenerator
                         "        if ({$varName} !== null && !({$varName} instanceof \\Carbon\\Carbon)) {\n" .
                         "            {$varName} = \\Carbon\\Carbon::parse({$varName});\n" .
                         "        }";
-            } 
+            }
 
             return "        {$varName} = {$validatedCall};\n" .
                     "        if (!({$varName} instanceof \\Carbon\\Carbon)) {\n" .
