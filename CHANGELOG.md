@@ -2,6 +2,12 @@
 
 All notable changes to `laravel-dto` will be documented in this file.
 
+## [1.0.4] - 2025-08-01
+
+### Added
+
+- Automatic enum generation from `in` validation rules
+
 ## [1.0.3] - 2025-07-31
 
 - Avoid Generating unused `use statements` by [@faissaloux](https://github.com/faissaloux) in [#2](https://github.com/julio-cavallari/laravel-dto/pull/2)
