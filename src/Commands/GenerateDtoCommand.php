@@ -139,6 +139,12 @@ class GenerateDtoCommand extends Command
         $this->line("🔍 Processing: {$className}");
 
         $parsedData = $parser->parse($filePath);
+
+        // Generate enum files first
+        if (!empty($parsedData['enums'])) {
+            $this->generateEnumFiles($generator, $parsedData['enums'], $force, $dryRun);
+        }
+
         $dtoCode = $generator->generate($parsedData);
 
         $dtoPath = $generator->getDtoPath($className, $parsedData['custom_dto_class']);
@@ -253,5 +259,39 @@ class GenerateDtoCommand extends Command
         }
 
         return false;
+    }
+
+    /**
+     * Generate enum files from parsed enum data.
+     *
+     * @param  array<string, array{name: string, values: array<string>, namespace: string}>  $enums
+     */
+    private function generateEnumFiles(
+        DtoGenerator $generator,
+        array $enums,
+        bool $force,
+        bool $dryRun
+    ): void {
+        $generatedEnums = $generator->generateEnums($enums);
+
+        foreach ($generatedEnums as $enumPath => $enumCode) {
+            $enumName = basename($enumPath, '.php');
+
+            if (!$force && File::exists($enumPath) && !$dryRun) {
+                $this->line("⚠️  Enum already exists: {$enumName} (use --force to overwrite)");
+                continue;
+            }
+
+            if ($dryRun) {
+                $this->line("📝 Would generate enum: {$enumPath}");
+                $this->line('--- Generated Enum Code Preview ---');
+                $this->line($enumCode);
+                $this->line('--- End Enum Preview ---');
+            } else {
+                File::ensureDirectoryExists(dirname($enumPath));
+                File::put($enumPath, $enumCode);
+                $this->line("✅ Generated enum: {$enumName}");
+            }
+        }
     }
 }

@@ -17,13 +17,13 @@ class DtoGenerator
 
     public function __construct()
     {
-        $this->template = new DtoTemplate;
+        $this->template = new DtoTemplate();
     }
 
     /**
      * Generate DTO class code from parsed data.
      *
-     * @param  array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null}  $parsedData  Parsed Form Request data
+     * @param  array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>}>, custom_dto_class: string|null, enums: array<string, array{name: string, values: array<string>, namespace: string}>}  $parsedData  Parsed Form Request data
      * @return string Generated PHP code
      */
     public function generate(array $parsedData): string
@@ -33,19 +33,24 @@ class DtoGenerator
         $formRequestClass = $parsedData['class_name'];
         $formRequestNamespace = $parsedData['namespace'];
 
-        $constructorParams = $this->generateConstructorParameters($parsedData['fields']);
-        $fromRequestMethod = $this->generateFromRequestMethod($parsedData['fields'], $formRequestClass);
+        // Collect enum imports and update field types
+        $enumImports = $this->collectEnumImports($parsedData['fields']);
+        $fieldsWithShortEnumTypes = $this->updateFieldTypesToShortNames($parsedData['fields'], $enumImports);
+
+        $constructorParams = $this->generateConstructorParameters($fieldsWithShortEnumTypes);
+        $fromRequestMethod = $this->generateFromRequestMethod($fieldsWithShortEnumTypes, $formRequestClass);
 
         return $this->template->render([
             'namespace' => $dtoNamespace,
             'class_name' => $dtoClassName,
-            'fields' => $parsedData['fields'],
+            'fields' => $fieldsWithShortEnumTypes,
             'form_request_class' => $formRequestClass,
             'form_request_namespace' => $formRequestNamespace,
             'constructor_params' => $constructorParams,
             'from_request_method' => $fromRequestMethod,
             'readonly' => $this->isReadonly(),
             'generate_from_request' => $this->shouldGenerateFromRequest() && $fromRequestMethod !== '',
+            'enum_imports' => $enumImports,
             'use_imports' => true,
         ]);
     }
@@ -154,7 +159,7 @@ class DtoGenerator
     /**
      * Generate fromRequest method code.
      *
-     * @param  array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>  $fields
+     * @param  array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>, original_enum_type?: string}>  $fields
      */
     private function generateFromRequestMethod(array $fields, string $formRequestClass): string
     {
@@ -168,9 +173,21 @@ class DtoGenerator
         foreach ($fields as $field) {
             $name = $field['name'];
             $type = $field['type'];
+            $originalType = $field['original_enum_type'] ?? $type;
             $default = $this->formatDefaultValueForMethod($field);
 
-            $needsConversion = $this->needsTypeConversion($type);
+            // Use enum() method for enum fields
+            if ($this->isEnumType($originalType)) {
+                $enumClassReference = $type . '::class';
+                if ($default !== null) {
+                    $assignments[] = "            {$name}: \$request->enum('{$name}', {$enumClassReference}) ?? {$default}";
+                } else {
+                    $assignments[] = "            {$name}: \$request->enum('{$name}', {$enumClassReference})";
+                }
+                continue;
+            }
+
+            $needsConversion = $this->needsTypeConversion($originalType);
 
             if ($needsConversion) {
                 $varName = "\${$name}";
@@ -178,7 +195,7 @@ class DtoGenerator
                     ? "\$request->validated('{$name}', {$default})"
                     : "\$request->validated('{$name}')";
 
-                $conversions[] = $this->generateTypeConversion($name, $type, $field['nullable'], $validatedCall, $field['rules']);
+                $conversions[] = $this->generateTypeConversion($name, $originalType, $field['nullable'], $validatedCall, $field['rules']);
                 $assignments[] = "            {$name}: {$varName}";
             } else {
                 if ($default !== null) {
@@ -208,7 +225,7 @@ class DtoGenerator
         return in_array($type, [
             'Carbon\\Carbon',
             '\\Carbon\\Carbon',
-        ], true);
+        ], true) || $this->isEnumType($type);
     }
 
     /**
@@ -223,7 +240,7 @@ class DtoGenerator
         if ($type === 'Carbon\\Carbon' || $type === '\\Carbon\\Carbon') {
             $dateFormat = $this->extractDateFormat($rules);
 
-            if(!$nullable && !$dateFormat) {
+            if (!$nullable && !$dateFormat) {
                 return "        {$varName} = {$validatedCall};\n" .
                         "        if (!({$varName} instanceof \\Carbon\\Carbon)) {\n" .
                         "            {$varName} = \\Carbon\\Carbon::parse({$varName});\n" .
@@ -252,6 +269,21 @@ class DtoGenerator
 
         }
 
+        // Handle enum conversion
+        if ($this->isEnumType($type)) {
+            if ($nullable) {
+                return "        {$varName} = {$validatedCall};\n" .
+                       "        if ({$varName} !== null && !({$varName} instanceof {$type})) {\n" .
+                       "            {$varName} = {$type}::from({$varName});\n" .
+                       "        }";
+            }
+
+            return "        {$varName} = {$validatedCall};\n" .
+                   "        if (!({$varName} instanceof {$type})) {\n" .
+                   "            {$varName} = {$type}::from({$varName});\n" .
+                   "        }";
+        }
+
         return "        {$varName} = {$validatedCall};";
     }
 
@@ -268,6 +300,15 @@ class DtoGenerator
         }
 
         return null;
+    }
+
+    /**
+     * Check if a type is an enum type.
+     */
+    private function isEnumType(string $type): bool
+    {
+        $enumNamespace = $this->getEnumNamespace();
+        return str_starts_with($type, $enumNamespace . '\\') && str_ends_with($type, 'Enum');
     }
 
     /**
@@ -531,5 +572,108 @@ class DtoGenerator
         return str_contains($content, 'ConvertsToDto') ||
                str_contains($content, 'HasDto') ||
                str_contains($content, 'toDto()');
+    }
+
+    /**
+     * Generate enum files from parsed enum data.
+     *
+     * @param  array<string, array{name: string, values: array<string>, namespace: string}>  $enums
+     * @return array<string, string>  Array of enum file paths with their generated content
+     */
+    public function generateEnums(array $enums): array
+    {
+        if (empty($enums)) {
+            return [];
+        }
+
+        $enumGenerator = new EnumGenerator();
+        $generatedEnums = [];
+
+        foreach ($enums as $enumInfo) {
+            $enumCode = $enumGenerator->generateEnum(
+                $enumInfo['name'],
+                $enumInfo['values'],
+                $enumInfo['namespace']
+            );
+
+            $enumPath = $this->getEnumPath($enumInfo['name']);
+            $generatedEnums[$enumPath] = $enumCode;
+        }
+
+        return $generatedEnums;
+    }
+
+    /**
+     * Get the file path where an enum should be saved.
+     */
+    public function getEnumPath(string $enumClassName): string
+    {
+        $outputPath = base_path($this->getEnumOutputPath());
+
+        if (!is_dir($outputPath)) {
+            mkdir($outputPath, 0755, true);
+        }
+
+        return $outputPath . DIRECTORY_SEPARATOR . $enumClassName . '.php';
+    }
+
+    /**
+     * Get enum output path from configuration.
+     */
+    private function getEnumOutputPath(): string
+    {
+        return config('laravel-dto.enum_output_path', 'app/Enums');
+    }
+
+    /**
+     * Get enum namespace from configuration.
+     */
+    private function getEnumNamespace(): string
+    {
+        return config('laravel-dto.enum_namespace', 'App\\Enums');
+    }
+
+    /**
+     * Collect enum imports from fields.
+     *
+     * @param array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>}> $fields
+     * @return array<string, string> Array mapping full enum class names to short names
+     */
+    private function collectEnumImports(array $fields): array
+    {
+        $enumImports = [];
+
+        foreach ($fields as $field) {
+            if ($this->isEnumType($field['type'])) {
+                $fullClassName = $field['type'];
+                $shortClassName = basename(str_replace('\\', '/', $fullClassName));
+                $enumImports[$fullClassName] = $shortClassName;
+            }
+        }
+
+        return $enumImports;
+    }
+
+    /**
+     * Update field types to use short enum class names.
+     *
+     * @param array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>}> $fields
+     * @param array<string, string> $enumImports
+     * @return array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>}>
+     */
+    private function updateFieldTypesToShortNames(array $fields, array $enumImports): array
+    {
+        $updatedFields = [];
+
+        foreach ($fields as $fieldName => $field) {
+            if ($this->isEnumType($field['type']) && isset($enumImports[$field['type']])) {
+                $originalEnumType = $field['type']; // Store the original full class name
+                $field['type'] = $enumImports[$field['type']]; // Update to short name
+                $field['original_enum_type'] = $originalEnumType; // Store original for later use
+            }
+            $updatedFields[$fieldName] = $field;
+        }
+
+        return $updatedFields;
     }
 }

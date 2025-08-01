@@ -6,7 +6,7 @@ use Illuminate\Http\UploadedFile;
 use JulioCavallari\LaravelDto\Parsers\FormRequestParser;
 
 beforeEach(function (): void {
-    $this->parser = new FormRequestParser;
+    $this->parser = new FormRequestParser();
 });
 
 it('handles all basic validation rules with correct type inference', function (): void {
@@ -392,7 +392,7 @@ it('handles Laravel rule objects and closure validation', function (): void {
 
     // Test string fields with special rules
     $stringFields = [
-        'enum_field', 'password_field', 'custom_validation', 'phone_number',
+        'password_field', 'custom_validation', 'phone_number',
         'credit_card', 'hex_color', 'base64_image', 'doesnt_start_with',
         'doesnt_end_with', 'starts_with', 'ends_with', 'lowercase', 'uppercase',
     ];
@@ -401,6 +401,21 @@ it('handles Laravel rule objects and closure validation', function (): void {
         if (isset($result['fields'][$fieldName])) {
             expect($result['fields'][$fieldName]['type'])->toBe('string');
         }
+    }
+
+    // Test enum field (should be converted to enum)
+    if (isset($result['fields']['enum_field'])) {
+        expect($result['fields']['enum_field']['type'])->toBe('App\\Enums\\EnumFieldEnum');
+        expect($result['fields']['enum_field']['enum_class'])->toBe('App\\Enums\\EnumFieldEnum');
+        expect($result['fields']['enum_field']['enum_values'])->toBe(['value1', 'value2', 'value3']);
+    }
+
+    // Test that enums are populated
+    expect($result)->toHaveKey('enums');
+    if (isset($result['enums']['EnumFieldEnum'])) {
+        expect($result['enums']['EnumFieldEnum']['name'])->toBe('EnumFieldEnum');
+        expect($result['enums']['EnumFieldEnum']['values'])->toBe(['value1', 'value2', 'value3']);
+        expect($result['enums']['EnumFieldEnum']['namespace'])->toBe('App\\Enums');
     }
 
     // Test array fields

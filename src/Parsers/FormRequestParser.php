@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace JulioCavallari\LaravelDto\Parsers;
 
-use Illuminate\Support\Carbon;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use JulioCavallari\LaravelDto\Attributes\UseDto;
+use JulioCavallari\LaravelDto\Generators\EnumGenerator;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -17,11 +18,17 @@ use ReflectionMethod;
  */
 class FormRequestParser
 {
+    private EnumGenerator $enumGenerator;
+
+    public function __construct(?EnumGenerator $enumGenerator = null)
+    {
+        $this->enumGenerator = $enumGenerator ?? new EnumGenerator();
+    }
     /**
      * Parse a Form Request file to extract field information.
      *
      * @param  string  $filePath  Path to the Form Request file
-     * @return array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, custom_dto_class: string|null, file_path: string} Parsed data containing class info and fields
+     * @return array{class_name: string, namespace: string, short_name: string, form_request_class: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>}>, custom_dto_class: string|null, file_path: string, enums: array<string, array{name: string, values: array<string>, namespace: string}>} Parsed data containing class info, fields, and enum information
      */
     public function parse(string $filePath): array
     {
@@ -39,7 +46,9 @@ class FormRequestParser
         }
 
         $rules = $this->extractRules($reflection, $rulesMethod);
-        $fields = $this->parseFields($rules);
+        $parseResult = $this->parseFields($rules);
+        $fields = $parseResult['fields'];
+        $enums = $parseResult['enums'];
 
         // Check for UseDto attribute to get custom DTO class name
         $customDtoClass = $this->getCustomDtoClass($reflection);
@@ -52,6 +61,7 @@ class FormRequestParser
             'fields' => $fields,
             'custom_dto_class' => $customDtoClass,
             'file_path' => $filePath,
+            'enums' => $enums,
         ];
     }
 
@@ -158,11 +168,12 @@ class FormRequestParser
      * Parse fields from validation rules.
      *
      * @param  array<string, mixed>  $rules
-     * @return array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>
+     * @return array{fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>, enum_class?: string, enum_values?: array<string>}>, enums: array<string, array{name: string, values: array<string>, namespace: string}>}
      */
     private function parseFields(array $rules): array
     {
         $fields = [];
+        $enums = [];
         $typeMapping = $this->getTypeMapping();
 
         // First, process array fields with asterisk notation
@@ -186,6 +197,16 @@ class FormRequestParser
             }
 
             $fieldInfo = $this->parseFieldInfo($fieldName, $rule, $typeMapping);
+
+            // Check if this field should generate an enum
+            $enumInfo = $this->processEnumField($fieldName, $fieldInfo['rules']);
+            if ($enumInfo !== null) {
+                $enums[$enumInfo['name']] = $enumInfo;
+                $fieldInfo['enum_class'] = $enumInfo['namespace'] . '\\' . $enumInfo['name'];
+                $fieldInfo['enum_values'] = $enumInfo['values'];
+                $fieldInfo['type'] = $enumInfo['namespace'] . '\\' . $enumInfo['name'];
+            }
+
             $fields[$fieldName] = [
                 'type' => $fieldInfo['type'],
                 'nullable' => $fieldInfo['nullable'],
@@ -196,10 +217,21 @@ class FormRequestParser
                 'default_value' => $fieldInfo['default_value'],
                 'rules' => $fieldInfo['rules'],
             ];
+
+            // Add enum information if present
+            if (isset($fieldInfo['enum_class'])) {
+                $fields[$fieldName]['enum_class'] = $fieldInfo['enum_class'];
+                $fields[$fieldName]['enum_values'] = $fieldInfo['enum_values'];
+            }
         }
 
         // Merge array fields and nested fields with regular fields
-        return array_merge($fields, $arrayFields, $nestedFields);
+        $allFields = array_merge($fields, $arrayFields, $nestedFields);
+
+        return [
+            'fields' => $allFields,
+            'enums' => $enums,
+        ];
     }
 
     /**
@@ -490,7 +522,7 @@ class FormRequestParser
      */
     private function getTypeMapping(): array
     {
-        return config('laravel-dto.type_mapping', [
+        $defaultMapping = [
             'accepted' => 'bool',
             'accepted_if' => 'bool',
             'boolean' => 'bool',
@@ -568,6 +600,63 @@ class FormRequestParser
             'bool' => 'bool',
             'int' => 'int',
             'float' => 'float',
-        ]);
+        ];
+
+        if (function_exists('config')) {
+            return config('laravel-dto.type_mapping', $defaultMapping);
+        }
+
+        return $defaultMapping;
+    }
+
+    /**
+     * Process a field to determine if it should generate an enum.
+     *
+     * @param  string  $fieldName
+     * @param  array<string>  $rules
+     * @return array{name: string, values: array<string>, namespace: string}|null
+     */
+    private function processEnumField(string $fieldName, array $rules): ?array
+    {
+        $inRule = null;
+
+        // Find the "in" rule
+        foreach ($rules as $rule) {
+            if (str_starts_with($rule, 'in:')) {
+                $inRule = $rule;
+                break;
+            }
+        }
+
+        if ($inRule === null) {
+            return null;
+        }
+
+        $values = $this->enumGenerator->extractInRuleValues($inRule);
+
+        if (!$this->enumGenerator->shouldGenerateEnum($rules, $values)) {
+            return null;
+        }
+
+        $enumClassName = $this->enumGenerator->generateEnumClassName($fieldName);
+        $enumNamespace = $this->getEnumNamespace();
+
+        return [
+            'name' => $enumClassName,
+            'values' => $values,
+            'namespace' => $enumNamespace,
+        ];
+    }
+
+    /**
+     * Get enum namespace from configuration.
+     */
+    private function getEnumNamespace(): string
+    {
+        if (function_exists('config')) {
+            return config('laravel-dto.enum_namespace', 'App\\Enums');
+        }
+
+        return 'App\\Enums';
     }
 }
