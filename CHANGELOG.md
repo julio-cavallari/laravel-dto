@@ -2,6 +2,17 @@
 
 All notable changes to `laravel-dto` will be documented in this file.
 
+## [1.0.3] - 2025-07-31
+
+- Avoid Generating unused `use statements` by [@faissaloux](https://github.com/faissaloux) in [#2](https://github.com/julio-cavallari/laravel-dto/pull/2)
+
+### Announcement
+
+- **🎉 First stable release of Laravel DTO Package!**
+  - The package has reached stability and is ready for production use
+  - Comprehensive testing and validation completed
+  - Community feedback incorporated and issues resolved
+
 ## [1.0.2] - 2025-07-12
 
 ### Added

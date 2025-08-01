@@ -5,11 +5,6 @@
 
 A Laravel package that automatically generates Data Transfer Objects (DTOs) from Form Request classes, keeping them in sync with your validation rules.
 
-> ⚠️ **Development Status**
->
-> This package is currently in active development and is **not ready for production use**.
-> The API may change significantly between versions. Please use at your own risk and avoid using in production environments until a stable version is released.
-
 ## Features
 
 - 🚀 **Automatic Generation**: Generate DTOs from existing Form Request classes
@@ -373,61 +368,3 @@ Please review [our security policy](../../security/policy) on how to report secu
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
-
-### Automatic Validation
-
-One of the key benefits of using Form Requests with DTOs is **automatic validation**. When a Form Request is injected into a controller method, Laravel automatically validates the incoming data before your controller code runs.
-
-#### How It Works
-
-```php
-class ArticleController extends Controller
-{
-    public function store(CreateArticleRequest $request)
-    {
-        // 🎯 If we reach this point, validation has already passed!
-        // Laravel automatically:
-        // 1. Instantiated the CreateArticleRequest
-        // 2. Called authorize() method (if it returns false → 403 error)
-        // 3. Called rules() method and validated data (if fails → 422 error)
-        // 4. ONLY THEN called this controller method
-
-        $articleData = $request->toDto(); // ✅ Guaranteed to have valid data
-
-        // Your business logic here...
-    }
-}
-```
-
-#### Validation Flow
-
-1. **Request arrives** → Laravel receives HTTP request
-2. **Route resolution** → Laravel determines which controller method to call
-3. **Dependency injection** → Laravel sees `CreateArticleRequest` parameter
-4. **Authorization check** → `authorize()` method is called
-5. **Validation rules** → `rules()` method is called and data is validated
-6. **Controller execution** → Your controller method finally runs (only if validation passed)
-
-#### What You Get
-
-- ✅ **Automatic validation** - No manual `validate()` calls needed
-- ✅ **Type-safe DTOs** - Only validated data reaches your DTO
-- ✅ **Consistent error responses** - Laravel automatically returns 422 with validation errors
-- ✅ **Clean controllers** - Focus on business logic, not validation
-- ✅ **Validated data guarantee** - `toDto()` uses `$request->validated()` under the hood
-
-#### Example Validation Response
-
-If validation fails, Laravel automatically returns:
-
-```json
-{
-  "message": "The given data was invalid.",
-  "errors": {
-    "title": ["The title field is required."],
-    "content": ["The content must be at least 10 characters."]
-  }
-}
-```
-
-Your controller method is **never called** when validation fails!
