@@ -14,7 +14,7 @@ class DtoTemplate
     /**
      * Render DTO class template with provided data.
      *
-     * @param  array{namespace: string, class_name: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, generate_from_request: bool, from_request_method: string, use_imports: bool, form_request_class: string, form_request_namespace: string, constructor_params: string, readonly: bool}  $data  Template data
+     * @param  array{namespace: string, class_name: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, generate_from_request: bool, from_request_method: string, use_imports: bool, form_request_class: string, form_request_namespace: string, constructor_params: string, readonly: bool, enum_imports?: array<string, string>}  $data  Template data
      * @return string Generated PHP code
      */
     public function render(array $data): string
@@ -50,7 +50,7 @@ class DtoTemplate
     /**
      * Generate use statements.
      *
-     * @param  array{namespace: string, class_name: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, generate_from_request: bool, from_request_method: string, use_imports: bool, form_request_class: string, form_request_namespace: string, constructor_params: string, readonly: bool}  $data
+     * @param  array{namespace: string, class_name: string, fields: array<string, array{type: string, nullable: bool, default: mixed, name: string, is_array: bool, has_default: bool, default_value: mixed, rules: array<string>}>, generate_from_request: bool, from_request_method: string, use_imports: bool, form_request_class: string, form_request_namespace: string, constructor_params: string, readonly: bool, enum_imports?: array<string, string>}  $data
      */
     private function generateUseStatements(array $data): string
     {
@@ -58,6 +58,13 @@ class DtoTemplate
 
         if ($data['generate_from_request']) {
             $uses[] = "use {$data['form_request_namespace']}\\{$data['form_request_class']};";
+        }
+
+        // Add enum imports
+        if (isset($data['enum_imports']) && !empty($data['enum_imports'])) {
+            foreach ($data['enum_imports'] as $fullClassName => $shortClassName) {
+                $uses[] = "use {$fullClassName};";
+            }
         }
 
         return $uses === [] ? '' : implode("\n", $uses)."\n";

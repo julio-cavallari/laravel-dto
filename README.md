@@ -11,6 +11,7 @@ A Laravel package that automatically generates Data Transfer Objects (DTOs) from
 - 🔄 **Stay in Sync**: Keep DTOs updated with Form Request changes
 - 🛡️ **Type Safe**: Generate strongly typed DTOs with proper type hints
 - 🎯 **Immutable**: Generate readonly DTOs for better data integrity
+- 🏷️ **Smart Enums**: Automatically generate PHP 8.1+ enums from "in" validation rules
 - ⚡ **Fast**: Efficient parsing and generation
 - 🔧 **Configurable**: Customize namespaces, paths, and generation options
 
@@ -95,6 +96,8 @@ class CreateArticleRequest extends FormRequest
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'excerpt' => 'nullable|string|max:500',
+            'status' => 'required|string|in:draft,published,archived',
+            'category' => 'required|string|in:news,sports,technology',
             'tags' => 'array',
             'published' => 'boolean',
         ];
@@ -112,13 +115,15 @@ declare(strict_types=1);
 namespace App\DTOs;
 
 use App\Http\Requests\CreateArticleRequest;
+use App\Enums\StatusEnum;
+use App\Enums\CategoryEnum;
 
 /**
  * Generated DTO class
  *
  * This class was automatically generated from a Form Request.
  *
- * @generated 2025-07-10 12:00:00
+ * @generated 2025-08-01 22:30:00
  */
 final readonly class CreateArticleData
 {
@@ -126,6 +131,8 @@ final readonly class CreateArticleData
         public string $title,
         public string $content,
         public ?string $excerpt = null,
+        public StatusEnum $status,
+        public CategoryEnum $category,
         public array $tags = [],
         public bool $published = false,
     ) {
@@ -137,11 +144,113 @@ final readonly class CreateArticleData
             title: $request->validated('title'),
             content: $request->validated('content'),
             excerpt: $request->validated('excerpt', null),
+            status: $request->enum('status', StatusEnum::class),
+            category: $request->enum('category', CategoryEnum::class),
             tags: $request->validated('tags', []),
             published: $request->validated('published', false),
         );
     }
 }
+```
+
+**And automatically generate these enums:**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Enums;
+
+enum StatusEnum: string
+{
+    case DRAFT = 'draft';
+    case PUBLISHED = 'published';
+    case ARCHIVED = 'archived';
+}
+```
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Enums;
+
+enum CategoryEnum: string
+{
+    case NEWS = 'news';
+    case SPORTS = 'sports';
+    case TECHNOLOGY = 'technology';
+}
+```
+
+### Automatic Enum Generation
+
+The package intelligently detects `in` validation rules and automatically generates PHP 8.1+ backed enums:
+
+#### Smart Detection
+
+Enums are created when validation rules meet these criteria:
+
+- Contains an `in` rule (e.g., `in:draft,published,archived`)
+- Has between 2-10 values (configurable)
+- Values are not large numeric IDs (to avoid enum pollution)
+
+#### Enum Types
+
+- **String values**: Creates `string` backed enums
+- **Integer values**: Creates `int` backed enums
+- **Mixed values**: Creates `string` backed enums (casts integers to strings)
+
+#### Examples
+
+```php
+// Form Request
+'status' => 'required|in:draft,published,archived',
+'priority' => 'nullable|integer|in:1,2,3,4,5',
+'language' => 'nullable|in:en,fr,es,de',
+
+// Generated Enums
+enum StatusEnum: string
+{
+    case DRAFT = 'draft';
+    case PUBLISHED = 'published';
+    case ARCHIVED = 'archived';
+}
+
+enum PriorityEnum: int
+{
+    case _1 = 1;
+    case _2 = 2;
+    case _3 = 3;
+    case _4 = 4;
+    case _5 = 5;
+}
+
+enum LanguageEnum: string
+{
+    case EN = 'en';
+    case FR = 'fr';
+    case ES = 'es';
+    case DE = 'de';
+}
+```
+
+#### Enum Configuration
+
+Configure enum generation in the config file:
+
+```php
+return [
+    // Enum namespace
+    'enum_namespace' => 'App\\Enums',
+
+    // Enum output directory
+    'enum_output_path' => 'app/Enums',
+
+    // Other configurations...
+];
 ```
 
 ### Usage in Controllers
@@ -283,6 +392,12 @@ return [
     // Output directory
     'output_path' => 'app/DTOs',
 
+    // Enum namespace
+    'enum_namespace' => 'App\\Enums',
+
+    // Enum output directory
+    'enum_output_path' => 'app/Enums',
+
     // Form Request directory
     'form_request_path' => 'app/Http/Requests',
 
@@ -318,6 +433,7 @@ return [
         'url' => 'string',
         'uuid' => 'string',
         'json' => 'array',
+        'in' => 'string', // Value must be in array, generates enum when suitable
     ],
 ];
 ```
@@ -326,16 +442,17 @@ return [
 
 The package automatically infers PHP types from Laravel validation rules:
 
-| Validation Rule | PHP Type                       |
-| --------------- | ------------------------------ |
-| `string`        | `string`                       |
-| `integer`       | `int`                          |
-| `numeric`       | `float`                        |
-| `boolean`       | `bool`                         |
-| `array`         | `array`                        |
-| `file`          | `Illuminate\Http\UploadedFile` |
-| `date`          | `Carbon\Carbon`                |
-| `nullable`      | Adds `?` prefix                |
+| Validation Rule | PHP Type                       | Notes                                   |
+| --------------- | ------------------------------ | --------------------------------------- |
+| `string`        | `string`                       |                                         |
+| `integer`       | `int`                          |                                         |
+| `numeric`       | `float`                        |                                         |
+| `boolean`       | `bool`                         |                                         |
+| `array`         | `array`                        |                                         |
+| `file`          | `Illuminate\Http\UploadedFile` |                                         |
+| `date`          | `Carbon\Carbon`                |                                         |
+| `in:val1,val2`  | `App\Enums\FieldEnum`          | Auto-generates enum for suitable values |
+| `nullable`      | Adds `?` prefix                | Makes type nullable                     |
 
 ## Requirements
 

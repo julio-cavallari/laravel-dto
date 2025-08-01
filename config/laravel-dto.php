@@ -27,6 +27,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Enum Namespace
+    |--------------------------------------------------------------------------
+    |
+    | The namespace where Enum classes will be generated when "in" validation
+    | rules are converted to enums.
+    |
+    */
+    'enum_namespace' => 'App\\Enums',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Enum Output Directory
+    |--------------------------------------------------------------------------
+    |
+    | The directory where Enum files will be created. This path is relative
+    | to the Laravel application's base path.
+    |
+    */
+    'enum_output_path' => 'app/Enums',
+
+    /*
+    |--------------------------------------------------------------------------
     | Form Request Directory
     |--------------------------------------------------------------------------
     |
